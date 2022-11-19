@@ -1,10 +1,58 @@
+**Required Files**
 main_aug py
+- call solver which was specified in def mhe_discrete ()
+
+
 inputs.py
 parameters.py
-MHE_multishoot py
-model_3d_ode_aug.py
+- Includes different soil types, each as a function, e.g. "loam()"
+- parameters comes from literature review for each type of soil.
+- def model_parameters_multilayer()
+  - Note: This model is 3D model
+  - Each subsystem is parallel to each other, each subsystem is a different soil type
+  
+- def Space parameter()
+- def bounds_para()
+  - define physical constraints of pressure head, i.e. x state
+- def cmatrix_single():
+  - define G(.) in Eqn (12c) of first paper for Literature_MHE_Irrigation_System_1D.pdf
 
+
+MHE_multishoot py
+- multishoot meaning: allow solver to find opt solution easier.
+- def filter_smoother ():
+  - select x_bar and initial guess for mhe opt. problem
+- def mhe_prepare()
+  - calculate parameters that are frequently used in mhe
+  - x_inl: initial guess (from filter_smoother() func
+  - y_inl: measurements by sensor (estimated by simulation)
+  - P, Q, R,...
+  
+- def flatten():
+  - convert to 1D data shape in order to put to mhe model
+  - J is objective function
+  - dv: decision variables
+  
+- def mhe_discrete():
+  - construct Distributed MHE Opt. Problem
+  - solver: ipopt (interior point opt. - for non-linear opt. problem, search beginning from strictly feasible area)
+
+- def cal_cur_state():
+  - obtain x_hat|k using opt. solution (x_hat_0, ......, x_hat_k-1; w_hat_0, ......, w_hat_k-1) and sub to model.
+
+
+
+model_3d_ode_aug.py
+- construct ode
+
+
+
+
+===================================
 **Not required**
 Ensemble py
 Extended Kalman py
 Simulator Subsystem py
+
+
+
