@@ -45,12 +45,11 @@ NyPerEst = spacePara_dict['NyPerEst']
 Nu = spacePara_dict['Nu']
 Ninfo = spacePara_dict['Ninfo']
 dz = spacePara_dict['dz']
-
 Nxx = spacePara_dict['Nxx']
 Nxy = spacePara_dict['Nxy']
 Nxz = spacePara_dict['Nxz']
 
-ParsDict, ParsNp, ParsScale = model_parameters_multiLayer(Nsoil)  # soil/model parameters: This are the true parameters
+ParsDict, ParsNp, ParsScale = model_parameters_multiLayer(Nsoil)  # soil/model parameters: These are the true parameters
 P0, Q, R, noise_w, noise_v, tol_desired = variance(Nx, Nx_aug, Nw_aug, Nv)
 xlower, xupper, wlower, wupper, xlower_fie, xupper_fie = bounds_para(NxPerEst, NpTotal, Np, Nsoil, Nest)  # Nx, Nx_aug, Np are used to determine the dimension of bounds_para
 CMatrix = cmatrix_single(Nx, Ny)
@@ -59,12 +58,12 @@ io.savemat('Data/space_parameters.mat', spacePara_dict)
 io.savemat('Data/time_parameters.mat', dict(DeltaT=DeltaT, Tsim=Tsim, Nsim=Nsim, DeltaT_internal=DeltaT_internal, Nsim_internal=Nsim_internal, Tplot=Tplot, Nmhe=Nmhe, DeltaTmhe=DeltaTmhe, calNode=calNode))
 
 # Make covariance matrices. --------------------------------------------------------------------------------------------
-P_ekf = []
-P_ekf.append(P0)
-P_ekf_minus = []
-P_ekf_minus.append(P0)
+# In this study, P matrix is a tuning parameter and is not from EKF
+# P_ekf = []
+# P_ekf.append(P0)
+# P_ekf_minus = []
+# P_ekf_minus.append(P0)
 
-# seedpoint = []
 seedpoint = 514
 np.random.seed(seedpoint)  # Seed random number generator.  927 means seed will start from 927 all the time, which give random.randn the same results everytime.
 
@@ -91,8 +90,6 @@ for i in range(NpTotal//Np):
     x0_est = np.append(x0_est, ParsScale_est)
 
 # Generate noises ------------------------------------------------------------------------------------------------------
-
-
 v_all = noise_v*np.random.randn(Nsim//calNode+1,Nw)
 v = np.matmul(v_all, cmatrix_single(Nx, Ny).T)
 w_small = noise_w*np.random.randn(Nsim,Nw_aug)  # Process noise sequence
@@ -150,22 +147,21 @@ x_clean_np[0, :] = x0
 y_clean_np = np.zeros((Nsim//calNode+1,Ny))
 y_clean_np[0, :] = getOutputs_np_aug(x0)
 
-x_np_V2 = np.zeros((Nsim+1,Nx_aug))
-x_np_V2[0, :] = x0
-y_np_V2 = np.zeros((Nsim//calNode+1,Ny))
-y_np_V2[0, :] = getOutputs_np_aug(x0) + v[0, :]  # np is used, since we only need to know the value
-
-x_ol_np_V2 = np.zeros((Nsim+1,Nx_aug))
-x_ol_np_V2[0,:] = x0_est
-y_ol_np_V2 = np.zeros((Nsim//calNode+1,Ny))
-y_ol_np_V2[0, :] = getOutputs_np_aug(x0_est)# + v[0,:]  # np is used, since we only need to know the value
-
-x_clean_np_V2 = np.zeros((Nsim+1,Nx_aug))
-x_clean_np_V2[0, :] = x0
-y_clean_np_V2 = np.zeros((Nsim//calNode+1,Ny))
-y_clean_np_V2[0, :] = getOutputs_np_aug(x0)
+# x_np_V2 = np.zeros((Nsim+1,Nx_aug))
+# x_np_V2[0, :] = x0
+# y_np_V2 = np.zeros((Nsim//calNode+1,Ny))
+# y_np_V2[0, :] = getOutputs_np_aug(x0) + v[0, :]  # np is used, since we only need to know the value
+#
+# x_ol_np_V2 = np.zeros((Nsim+1,Nx_aug))
+# x_ol_np_V2[0,:] = x0_est
+# y_ol_np_V2 = np.zeros((Nsim//calNode+1,Ny))
+# y_ol_np_V2[0, :] = getOutputs_np_aug(x0_est)# + v[0,:]  # np is used, since we only need to know the value
+#
+# x_clean_np_V2 = np.zeros((Nsim+1,Nx_aug))
+# x_clean_np_V2[0, :] = x0
+# y_clean_np_V2 = np.zeros((Nsim//calNode+1,Ny))
+# y_clean_np_V2[0, :] = getOutputs_np_aug(x0)
 # -------------------------------------------------------------
-
 x_clean_dis = np.zeros((Nsim+1, (NxPerEst + Np*max(1, Nsoil//Nest)), Nest))
 x_dis = np.zeros((Nsim+1, (NxPerEst + Np*max(1, Nsoil//Nest)), Nest))
 x_ol_dis = np.zeros((Nsim+1, (NxPerEst + Np*max(1, Nsoil//Nest)), Nest))
@@ -208,16 +204,6 @@ else:  # more than 1 estimator
             y_ol_dis[0, :, i] = getOutputs_np_aug_subsys(x_ol_dis[0, :, i], i)
 
 # in estimator --------------------------------------------------
-
-
-
-
-
-
-
-
-
-
 x_mhe = np.zeros((Nsim//calNode+1, (NxPerEst + Np*max(1, Nsoil//Nest)), Nest))  # mhe state estimation history
 y_mhe = np.zeros((Nsim//calNode+1, NyPerEst, Nest))
 if Nest ==1:
@@ -314,7 +300,7 @@ arr_cost = []
 solverList = []
 # ----------------------------------------------------------------------------------------------------------------------
 uu = irr(Nsim, DeltaT, Tsim)
-# Symbolic Models ----------------------------------------------------------------------------------------------------
+# Symbolic Models for Optimization Problems ----------------------------------------------------------------------------
 x_symbol = MX.sym("x",Nx_aug)
 u_symbol = MX.sym("u",Nu)
 # qbot_symbol = MX.sym("qbot", Nu)
@@ -613,8 +599,8 @@ x_ol_dis_timeS[:,0:NxPerEst] = x_ol_dis[:,:NxPerEst,0]
 x_ol_dis_timeS[:,NxPerEst:Nx] = x_ol_dis[:,:NxPerEst,1]
 x_ol_dis_timeS[:,Nx:Nx+Np] = x_ol_dis[:,NxPerEst:,0]
 x_ol_dis_timeS[:,Nx+Np:] = x_ol_dis[:,NxPerEst:,1]
-# Make a plot ----------------------------------------------------------------------------------------------------------
-#
+
+# Make a plot of RMSE --------------------------------------------------------------------------------------------------
 startPlotPoint = 0
 endPoint = -1
 interval = 1
@@ -653,7 +639,7 @@ plt.show()
 
 # All 32 measurements calculated from the 32 states --------------------------------------------------------------------
 for j in range(Nest):
-    for i in range(NyPerEst):  # choose how many states do yo wanna plot
+    for i in range(NyPerEst):
         plt.figure()
         plt.plot(Tplot[:]/DeltaT, y[:, NyPerEst*j+i], '-', label='y_exp')
         plt.plot(Tplot[:]/DeltaT, y_dis[:(Nsim//calNode)+1, i, j], '--', label='y_exp_subsys')

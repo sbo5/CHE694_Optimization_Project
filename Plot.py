@@ -19,7 +19,7 @@ import casadi as casadi
 para = np.array([1.04/100/3600, 0.43, 0.078, 3.6, 1.56, 1.31/100/3600, 0.39, 0.100, 0.059*100, 1.48])
 
 # data_dir = pjoin('studyOnPQR/1Px1e2Ppara1e3_Qx1e-1Qpara1e-20')
-mat_fname_x = pjoin('x.mat')
+mat_fname_x = pjoin('Results/DeMHE/x.mat')
 x_1 = sio.loadmat(mat_fname_x)
 x_exp_1 = x_1['xmea']
 x_mhe = x_1['xmhe']  # no matter dis or central, x_mhe are the same
@@ -27,7 +27,7 @@ x_ol_1 = x_1['xol']
 x_clean_1 = x_1['xclean']
 
 # mat_fname_y = pjoin(data_dir, 'y.mat')
-y_1 = sio.loadmat('Data/y.mat')
+y_1 = sio.loadmat('Results/DeMHE/y.mat')
 y_exp_1 = y_1['ymea']
 y_mhe_1 = y_1['ymhe']
 
@@ -37,7 +37,7 @@ y_mhe_1 = y_1['ymhe']
 # RMSE_mhe_x = SE_1['Jmhe_X_SSE']
 # RMSE_mhe_p = SE_1['Jmhe_P_SSE']
 
-mat_fname_timePara = pjoin('time_parameters.mat')
+mat_fname_timePara = pjoin('Results/DeMHE/time_parameters.mat')
 time_para = sio.loadmat(mat_fname_timePara)
 Tplot = time_para['Tplot'].ravel()
 DeltaT = time_para['DeltaT'].item()
@@ -46,7 +46,7 @@ Nsim = time_para['Nsim'].item()
 Tsim = time_para['Tsim'].item()
 DeltaTmhe = time_para['DeltaTmhe'].item()
 
-mat_fname_spacePara = pjoin('space_parameters.mat')
+mat_fname_spacePara = pjoin('Results/DeMHE/space_parameters.mat')
 space_para = sio.loadmat(mat_fname_spacePara)
 # Nest = space_para['Nest'].item()
 NxPerEst = space_para['NxPerEst'].item()
@@ -100,7 +100,7 @@ def thetaFun_np_4(psi,pars):
 #     # theta_ekf[t,:] = thetaFun_np_4(x_ekf[t, :Nx], x_ekf[t, Nx:])
 #     # theta_enkf[t,:] = thetaFun_np_4(x_enkf[t, :Nx], x_enkf[t, Nx:])
 # -----------------------------------------------------------------------------------------------------------------
-end = 39+1
+end = 7201
 # f, axs = plt.subplots(5, 1, sharex=True, figsize=(6.0, 7.0))
 # axs[0].plot(Tplot[:end] / DeltaT, theta_exp_1[:end, 0], 'r-')
 # axs[0].plot(Tplot[:end] / DeltaT, theta_mhe[:end, 0], 'k--')
