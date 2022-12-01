@@ -74,14 +74,14 @@ def initial_condition(Nx):
 
 
 def time_parameters():
-    DeltaT = 1*60  # Time step
-    Tsim = 30*24*10*(DeltaT)  # Simulation time
+    DeltaT = 1*60  # Time step [sec]
+    Tsim = 5*24*60*(DeltaT)  # Simulation time: 5 days
     Nsim = int(Tsim/DeltaT)  # Simulation nodes
-    DeltaT_internal = 1*60  # sec  # smaller dt for FD model
+    DeltaT_internal = 1*60  # sec  # smaller dt for FD model - for integration
     Nsim_internal = int(DeltaT/DeltaT_internal)
     Tplot = np.arange(Nsim + 1) * DeltaT  # used for plot
-    Nmhe = 8  #hr # size of moving window
-    DeltaTmhe = DeltaT # 1 hr # sec  # how often MHE/EnKF updates/estimates
+    Nmhe = 8 # size of moving window
+    DeltaTmhe = DeltaT  # how often MHE/EnKF updates/estimates
     calNode = DeltaTmhe // DeltaT
     return DeltaT, Tsim, Nsim, DeltaT_internal, Nsim_internal, Tplot, Nmhe, DeltaTmhe, calNode
 
@@ -119,7 +119,7 @@ def space_parameters(Np=5):
 
     spacePara_dict['Nsigma'] = 100  # Number of sigma points used for EnKF
 
-    spacePara_dict['NestX'] = 2
+    spacePara_dict['NestX'] = 2  # Number of estimators in X direction
     spacePara_dict['NestY'] = 1
     spacePara_dict['NestZ'] = 1
     spacePara_dict['Nest'] = spacePara_dict['NestX']*spacePara_dict['NestY']*spacePara_dict['NestZ']

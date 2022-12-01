@@ -101,7 +101,8 @@ for i in range(int(Tsim/DeltaTmhe)):  # Make w within DeltaTmhe be the same
 # ww_enkf = noise_w*np.random.randn(Nsim*Nsigma,Nw_aug)
 # ww_enkf[:,Nx_aug-Np:Nx_aug] = int(0)
 
-# Generating matrices --------------------------------------------------------------------------------------------------
+# == Generating matrices ===============================================================================================
+# For centralized system in MX/SX ------------------------------------------------
 x = np.zeros((Nsim+1,Nx_aug))
 x[0, :] = x0
 y = np.zeros((Nsim//calNode+1,Ny))
@@ -131,7 +132,8 @@ x_clean_int = np.zeros((Nsim+1,Nx_aug))
 x_clean_int[0, :] = x0
 y_clean_int = np.zeros((Nsim//calNode+1,Ny))
 y_clean_int[0, :] = getOutputs_np_aug(x0)
-# -------------------------------------------------------------
+
+# For centralized system in Numpy format -------------------------------------------------------------
 x_np = np.zeros((Nsim+1,Nx_aug))
 x_np[0, :] = x0
 y_np = np.zeros((Nsim//calNode+1,Ny))
@@ -147,21 +149,7 @@ x_clean_np[0, :] = x0
 y_clean_np = np.zeros((Nsim//calNode+1,Ny))
 y_clean_np[0, :] = getOutputs_np_aug(x0)
 
-# x_np_V2 = np.zeros((Nsim+1,Nx_aug))
-# x_np_V2[0, :] = x0
-# y_np_V2 = np.zeros((Nsim//calNode+1,Ny))
-# y_np_V2[0, :] = getOutputs_np_aug(x0) + v[0, :]  # np is used, since we only need to know the value
-#
-# x_ol_np_V2 = np.zeros((Nsim+1,Nx_aug))
-# x_ol_np_V2[0,:] = x0_est
-# y_ol_np_V2 = np.zeros((Nsim//calNode+1,Ny))
-# y_ol_np_V2[0, :] = getOutputs_np_aug(x0_est)# + v[0,:]  # np is used, since we only need to know the value
-#
-# x_clean_np_V2 = np.zeros((Nsim+1,Nx_aug))
-# x_clean_np_V2[0, :] = x0
-# y_clean_np_V2 = np.zeros((Nsim//calNode+1,Ny))
-# y_clean_np_V2[0, :] = getOutputs_np_aug(x0)
-# -------------------------------------------------------------
+# For distributed systems (subsystems)----------------------------------------------
 x_clean_dis = np.zeros((Nsim+1, (NxPerEst + Np*max(1, Nsoil//Nest)), Nest))
 x_dis = np.zeros((Nsim+1, (NxPerEst + Np*max(1, Nsoil//Nest)), Nest))
 x_ol_dis = np.zeros((Nsim+1, (NxPerEst + Np*max(1, Nsoil//Nest)), Nest))
@@ -203,7 +191,7 @@ else:  # more than 1 estimator
             y_dis[0, :, i] = getOutputs_np_aug_subsys(x_dis[0, :, i], i) + v_dis[0, :, i]
             y_ol_dis[0, :, i] = getOutputs_np_aug_subsys(x_ol_dis[0, :, i], i)
 
-# in estimator --------------------------------------------------
+# For estimator --------------------------------------------------
 x_mhe = np.zeros((Nsim//calNode+1, (NxPerEst + Np*max(1, Nsoil//Nest)), Nest))  # mhe state estimation history
 y_mhe = np.zeros((Nsim//calNode+1, NyPerEst, Nest))
 if Nest ==1:
@@ -225,24 +213,8 @@ Y_allInWin_allEst = np.zeros((Nmhe*calNode+1, (NyPerEst), Nest))
 
 x_bar_allEst = np.zeros((NxPerEst+Np*max(1, Nsoil//Nest), Nest))
 x_bar_allEst_alt = np.zeros((NxPerEst+Np*max(1, Nsoil//Nest), Nest))
-# Error -------------------------------------------------------
-# Jmhe_X_SSE_perEst = np.zeros((Nsim//calNode+1,Nest))
-# Jmhe_P_SSE_perEst = np.zeros((Nsim//calNode+1,max(1, Nsoil//Nest),Nest))
-# Jmhe_Y_SSE_perEst = np.zeros((Nsim//calNode+1,Nest))
-# for j in range(Nest):
-#     Jmhe_X_SSE_perEst[0,j] = sum((x0_est[j*NxPerEst:(j+1)*NxPerEst]-x0[j*NxPerEst:(j+1)*NxPerEst])**2)
-#     Jmhe_Y_SSE_perEst[0,j] = sum((y_ol[0, j*NyPerEst:(j+1)*NyPerEst]-y[0, j*NyPerEst:(j+1)*NyPerEst])**2)
-#     if Nsoil == 1:
-#         Jmhe_P_SSE_perEst[0, 0, j] = sum((x0_est[Nx:Nx+Np] - x0[Nx:Nx+Np]) ** 2)
-#     else:
-#         for i in range(max(1, Nsoil//Nest)):
-#             Jmhe_P_SSE_perEst[0, i, j] = sum((x_ol_dis[0, NxPerEst+Np*i:NxPerEst+Np*(i+1), j] - x_dis[0, NxPerEst+Np*i:NxPerEst+Np*(i+1), j]) ** 2)
-#
-# Jmhe_X_allNodes = np.zeros((Nsim//calNode+1,Nx))
-# Jmhe_X_allNodes[0,:] = (x0_est[0:Nx]-x0[0:Nx])**2
-# Jmhe_P_allNodes = np.zeros((Nsim//calNode+1,NpTotal))
-# Jmhe_P_allNodes[0,:] = (x0_est[Nx:Nx_aug]-x0[Nx:Nx_aug])**2
 
+# For error -------------------------------------------------------
 RMSE_Y = np.zeros(Nsim//calNode+1)
 RMSE_X = np.zeros(Nsim//calNode+1)
 RMSE_P = np.zeros(Nsim//calNode+1)
@@ -290,20 +262,24 @@ RMSE_Y[0] = np.sqrt(np.sum((y[0]-y_mhe_timeS[0])**2)/Ny)
 RMSE_X[0] = np.sqrt(np.sum((x[0,:Nx]-x_mhe_timeS[0])**2)/Nx)
 RMSE_P[0] = np.sqrt(np.sum((x[0,Nx:]-p_mhe_timeS[0])**2)/Np)
 
+# For recording time -------------------------------------------------------
 mhe_SolverTimeUsed_List = np.zeros((int(Nsim/calNode)-Nmhe, Nest))
 mhe_SolverConstructed_List = np.zeros((int(Nsim/calNode)-Nmhe, Nest))
 fie_SolverConstructed_List = np.zeros((Nmhe, Nest))
 fie_SolverTimeUsed_List = np.zeros((Nmhe, Nest))
 
+# For recording other information -----------------------------------------
 filter_smoother = []
 arr_cost = []
 solverList = []
-# ----------------------------------------------------------------------------------------------------------------------
+
+# For inputs - irrigation rate ---------------------------------------------
 uu = irr(Nsim, DeltaT, Tsim)
-# Symbolic Models for Optimization Problems ----------------------------------------------------------------------------
+
+# == Symbolic Models for Optimization Problems =========================================================================
+# For centralized system --------------------------------------------------------------
 x_symbol = MX.sym("x",Nx_aug)
 u_symbol = MX.sym("u",Nu)
-# qbot_symbol = MX.sym("qbot", Nu)
 qleft_symbol = MX.sym("qleft", Ninfo)
 qright_symbol = MX.sym("qright", Ninfo)
 w_symbol = MX.sym("w",Nw_aug)
@@ -324,26 +300,9 @@ ode = {'x': x_symbol, 'p': vertcat(u_symbol,qleft_symbol,qright_symbol,w_symbol)
 opts = {'tf': DeltaT, 'regularity_check':True}  # seconds
 I = integrator('I', 'cvodes', ode, opts)  # Build casadi integrator
 
-# Jacobians.
-# f_jacx = jacobian(F_symbol, x_symbol)
-# f_jacxFun = Function('f_jacxFun', [x_symbol, u_symbol, qbot_symbol, w_symbol], [f_jacx])
-# f_jacu = jacobian(F_symbol, u_symbol)
-# f_jacuFun = Function('f_jacuFun', [x_symbol, u_symbol, qbot_symbol, w_symbol], [f_jacu])
-# h_jacx = jacobian(H_symbol, x_symbol)
-# h_jacxFun = Function('h_jacxFun', [x_symbol], [h_jacx])
-
-# f_internal_symbol = f_internal_aug(x_symbol, u_symbol, w_symbol)
-# # Jacobians.
-# f_jacx = jacobian(f_internal_symbol, x_symbol)
-# f_jacxFun = Function('f_jacxFun', [x_symbol, u_symbol, w_symbol], [f_jacx])
-# f_jacu = jacobian(f_internal_symbol, u_symbol)
-# f_jacuFun = Function('f_jacuFun', [x_symbol, u_symbol, w_symbol], [f_jacu])
-# h_jacx = jacobian(H_symbol, x_symbol)
-# h_jacxFun = Function('h_jacxFun', [x_symbol], [h_jacx])
-# ----------------------------------------------------------------------------------------------------------------------
+# For distributed systems ----------------------------------------------------------------------------
 x_symbol_est = MX.sym("x_est",NxPerEst+Np*max(1,Nsoil//Nest))
 u_symbol_est = MX.sym("u_est",Nu)
-# xbot_symbol_est = MX.sym("xbot_est",Nu)
 xleft_symbol_est = MX.sym("xleft_est", Ninfo)
 xright_symbol_est = MX.sym("xright_est", Ninfo)
 w_symbol_est = MX.sym("w_est",NxPerEst+Np*max(1,Nsoil//Nest))
@@ -375,8 +334,8 @@ for i in range(1, Nsim+1):
         print('Nmhe is:', Nmhe, ', dt_internal is:', DeltaT_internal, ', tol is:', tol_desired, ', seedpoint is:', seedpoint)
 
 # == Model simulation ==================================================================================================
+    # Distributed simulator DT, when number of estimator is greater than 1 ---------------------------------------------
     if Nest != 1:
-        # Distributed simulator
         print('subsystem simulator - clean')
         x_clean_dis[i,:,:] = simulator_dis(x_clean_dis[i-1,:,:], np.zeros((NxPerEst+Np*max(1,Nsoil//Nest),Nest)), Nest, NxPerEst, Nu, Ninfo, Nsoil, Np, dz, uu[i-1,:], ParsNp, F_N_casadi_est, I_est, F_N_aug_np_subsys, KFun_np)
         print('subsystem simulator - process')
@@ -385,11 +344,12 @@ for i in range(1, Nsim+1):
         print('subsystem simulator - ol')
         x_ol_dis[i,:,:] = simulator_dis(x_ol_dis[i-1,:,:], np.zeros((NxPerEst+Np*max(1,Nsoil//Nest),Nest)), Nest, NxPerEst, Nu, Ninfo, Nsoil, Np, dz, uu[i-1,:], ParsNp, F_N_casadi_est, I_est, F_N_aug_np_subsys, KFun_np)
 
-        if i%calNode == 0:
-            for j in range(Nest):
-                y_clean_dis[i//calNode, :, j] = getOutputs_np_aug_subsys(x_clean_dis[i, :, j], j)
-                y_dis[i//calNode, :, j] = getOutputs_np_aug_subsys(x_dis[i, :, j], j) + v_dis[i//calNode, :, j]
-                y_ol_dis[i//calNode, :, j] = getOutputs_np_aug_subsys(x_ol_dis[i, :, j], j)
+        # Now get measurements from sensors
+        for j in range(Nest):
+            y_clean_dis[i//calNode, :, j] = getOutputs_np_aug_subsys(x_clean_dis[i, :, j], j)
+            y_dis[i//calNode, :, j] = getOutputs_np_aug_subsys(x_dis[i, :, j], j) + v_dis[i//calNode, :, j]
+            y_ol_dis[i//calNode, :, j] = getOutputs_np_aug_subsys(x_ol_dis[i, :, j], j)
+
     # Centralized simulator DT --------------------------------------------------------------------
     print('centralized simulator')
     qleft_clean = np.zeros(Ninfo)
@@ -405,171 +365,134 @@ for i in range(1, Nsim+1):
     x_ol[i,:] = F_N_casadi(x_ol[i-1,:], uu[i-1,:]*np.ones(Nu), qleft_ol, qright_ol, np.zeros(Nw_aug)).full().ravel()
     print('MX Simulator finished')
 
-    # qbot_clean_int = -KFun_np(x_clean_int[i-1,Nx-1], x_clean_int[i-1,-Np:], ParsNp[-Np:])
-    # qbot_orig_int =  -KFun_np(x_int[i-1,Nx-1], x_int[i-1,-Np:], ParsNp[-Np:])
-    # qbot_ol_int =  -KFun_np(x_ol_int[i-1,Nx-1], x_ol_int[i-1,-Np:], ParsNp[-Np:])
-    #
-    # Ik_clean = I(x0=x_clean_int[i-1,:], p=vertcat(uu[i-1,:], qbot_clean_int, np.zeros(Nw_aug)))
-    # x_clean_int[i,:] = Ik_clean['xf'].full().ravel()
-    # Ik_orig = I(x0=x_int[i-1,:], p=vertcat(uu[i-1,:], qbot_orig_int, w[i-1,:]))
-    # x_int[i,:] = Ik_orig['xf'].full().ravel()
-    # Ik_ol = I(x0=x_ol_int[i-1,:], p=vertcat(uu[i-1,:], qbot_ol_int, np.zeros(Nw_aug)))
-    # x_ol_int[i,:] = Ik_ol['xf'].full().ravel()
-    # np ------------------------------------------------------------------------------------------
-    # qbot_clean_np = -KFun_np(x_clean_np[i-1,Nx-1], x_clean_np[i-1,-Np:], ParsNp[-Np:])
-    # qbot_orig_np =  -KFun_np(x_np[i-1,Nx-1], x_np[i-1,-Np:], ParsNp[-Np:])
-    # qbot_ol_np =  -KFun_np(x_ol_np[i-1,Nx-1], x_ol_np[i-1,-Np:], ParsNp[-Np:])
-    #
-    # print('np simulator running')
-    # x_clean_np[i,:] = F_N_np(x_clean_np[i-1,:], uu[i-1,:], qbot_clean_np, np.zeros(Nw_aug))
-    # x_np[i,:] = F_N_np(x_np[i-1,:],uu[i-1,:], qbot_orig_np, w[i-1,:])
-    # x_ol_np[i,:] = F_N_np(x_ol_np[i-1,:], uu[i-1,:], qbot_ol_np, np.zeros(Nw_aug))
-    # print('np simulator finished')
-
-    # qleft_clean_np_V2 = np.zeros(Ninfo)#-KFun_np(x_clean_np_V2[i-1,Nx-1], x_clean_np_V2[i-1,-Np:], ParsNp[-Np:])
-    # qleft_orig_np_V2 = np.zeros(Ninfo)#-KFun_np(x_np_V2[i-1,Nx-1], x_np_V2[i-1,-Np:], ParsNp[-Np:])
-    # qleft_ol_np_V2 = np.zeros(Ninfo)#-KFun_np(x_ol_np_V2[i-1,Nx-1], x_ol_np_V2[i-1,-Np:], ParsNp[-Np:])
-    #
-    # qright_clean_np_V2 = np.zeros(Ninfo)
-    # qright_orig_np_V2 = np.zeros(Ninfo)
-    # qright_ol_np_V2 = np.zeros(Ninfo)
-    # print('np simulator running')
-    # x_clean_np_V2[i,:] = F_N_np_V2(x_clean_np_V2[i-1,:], uu[i-1,:]*np.ones(Nu), qleft_clean_np_V2, qright_clean_np_V2, np.zeros(Nw_aug))
-    # x_np_V2[i,:] = F_N_np_V2(x_np_V2[i-1,:],uu[i-1,:]*np.ones(Nu), qleft_orig_np_V2, qright_orig_np_V2, w[i-1,:])
-    # x_ol_np_V2[i,:] = F_N_np_V2(x_ol_np_V2[i-1,:]*np.ones(Nu), uu[i-1,:], qleft_ol_np_V2, qright_ol_np_V2, np.zeros(Nw_aug))
-    # print('np simulator finished')
-    # Measurement update ----------------------------------------------------------------------------
-    if i%calNode == 0:
-        y_clean[i//calNode,:] = getOutputs_np_aug(x_clean[i, :])    # current measurement, add measurement noise
-        y[i//calNode,:] = getOutputs_np_aug(x[i, :]) + v[i//calNode, :]    # current measurement, add measurement noise
-        y_ol[i//calNode,:] = getOutputs_np_aug(x_ol[i, :])# + v[i,:]
+    # Get measurement from sensors
+    y_clean[i//calNode,:] = getOutputs_np_aug(x_clean[i, :])    # current measurement, add measurement noise
+    y[i//calNode,:] = getOutputs_np_aug(x[i, :]) + v[i//calNode, :]    # current measurement, add measurement noise
+    y_ol[i//calNode,:] = getOutputs_np_aug(x_ol[i, :])# + v[i,:]
 
 # == Moving Horizon Estimation =========================================================================================
-    if i%calNode == 0:
-        if i == 40:
-            print()
-        MHEFIEtotalTime = -time.time()
-        x_in_allEst = np.zeros((min(i, Nmhe*calNode) + 1, NxPerEst + Np*max(1, Nsoil//Nest), Nest))  # for all estimators
-        x_in_allEst_alt = np.zeros((min(i, Nmhe*calNode) + 1, NxPerEst + Np*max(1, Nsoil//Nest), Nest))
-        '''
-        Preparation.
-        '''
+    MHEFIEtotalTime = -time.time()
+    x_in_allEst = np.zeros((min(i, Nmhe*calNode) + 1, NxPerEst + Np*max(1, Nsoil//Nest), Nest))  # for all estimators
+    x_in_allEst_alt = np.zeros((min(i, Nmhe*calNode) + 1, NxPerEst + Np*max(1, Nsoil//Nest), Nest))
 
-        x_bar_allEst, x_in_allEst = filter_smoother_scheme('filter', x_bar_allEst, x_in_allEst, x_mhe, x_ol, X_allInWin_allEst, i, calNode, Nmhe, Nx, Np, Nsoil, Nest, NxPerEst, NyPerEst)  # Now we only have code for smoother
+    ''' Preparation '''
+    x_bar_allEst, x_in_allEst = filter_smoother_scheme('filter', x_bar_allEst, x_in_allEst, x_mhe, x_ol, X_allInWin_allEst, i, calNode, Nmhe, Nx, Np, Nsoil, Nest, NxPerEst, NyPerEst)  # Now we only have code for smoother
 
-        for j in range(Nest):
-            xbegin = j*NxPerEst
-            xend = (j+1)*NxPerEst
-            ybegin = j*NyPerEst
-            yend = (j+1)*NyPerEst
-            pbegin = j*Np
-            pend = (j+1)*Np
-            if i // calNode <= Nmhe:  # use FIE, else use mhe
-                print('****************************************** FIE ******************************************')
-                print('Current instant:', i, 'Current hour:', i / (3600 / DeltaT), 'Estimator No.', j + 1)
-                filter_smoother += 'filter'
-                arr_cost += 'yes'
-                u_in1, qleft_in1, qright_in1, para_in1, x_in1, y_in1, P_in1, Q_in1, R_in1, x_bar = mhe_prepare(i, j, i, x_bar_allEst, y, uu, x_in_allEst, KFun_np, NxPerEst, Nu, Ninfo, Nest, Nsoil, Np, dz, ParsNp, calNode, Nmhe, Nx_aug, ybegin, yend, P0, Q, R)
+    for j in range(Nest):
+        # TODO: After here, we need to put them into iteration. Follow Haihan's code to modify
+        xbegin = j*NxPerEst
+        xend = (j+1)*NxPerEst
+        ybegin = j*NyPerEst
+        yend = (j+1)*NyPerEst
+        pbegin = j*Np
+        pend = (j+1)*Np
+        if i // calNode <= Nmhe:  # use FIE, else use mhe
+            print('****************************************** FIE ******************************************')
+            print('Current instant:', i, 'Current hour:', i / (3600 / DeltaT), 'Estimator No.', j + 1)
+            filter_smoother += 'filter'
+            arr_cost += 'yes'
+            u_in1, qleft_in1, qright_in1, para_in1, x_in1, y_in1, P_in1, Q_in1, R_in1, x_bar = mhe_prepare(i, j, i, x_bar_allEst, y, uu, x_in_allEst, KFun_np, NxPerEst, Nu, Ninfo, Nest, Nsoil, Np, dz, ParsNp, calNode, Nmhe, Nx_aug, ybegin, yend, P0, Q, R)
 
-                Pinv = linalg.inv(P_in1)
+            Pinv = linalg.inv(P_in1)
 
-                fie_timeBuild = -time.time()
-                print('Start constructing the solver')
-                solver, lbdv, ubdv, lbg, ubg = mhe_discrete(Pinv, Q_in1, R_in1, i, tol_desired, I_est, F_N_casadi_est, 'fie',
-                                                            getOutputs_mx_aug_subsys, Nu, Ninfo, Np, j,
-                                                            calNode)  # full information estimation
-                fie_timeBuild += time.time()
-                # ---------------------------------------------------------------------------------------------------
-                x_flat, y_flat, u_flat, qleft_flat, qright_flat, para_flat, _ = flaten(x_in1, y_in1, u_in1, qleft_in1, qright_in1, para_in1, P_in1, i, Nsoil, Nest, NxPerEst, Nu, Ninfo, Np, Nmhe, NyPerEst, calNode)
-                x0 = np.concatenate(
-                    (x_flat, np.zeros((NxPerEst + Np * max(1, Nsoil // Nest)) * i), y_flat, u_flat, qleft_flat, qright_flat, para_flat, x_bar))
-                # ---------------------------------------------------------------------------------------------------
-                fie_timeSolve = -time.time()
-                sol = solver(x0=vertcat(x0), lbx=vertcat(lbdv, y_flat, u_flat, qleft_flat, qright_flat, para_flat, x_bar),
-                             ubx=vertcat(ubdv, y_flat, u_flat, qleft_flat, qright_flat, para_flat, x_bar), lbg=lbg, ubg=ubg)
-                x_opt = sol['x'].full().ravel()
-                x_mhe_next, X_allInWin, W_allInWin, Y_allInWin = cal_cur_state(x_opt, u_in1, i, I_est, F_N_casadi_est,
-                                                                               getOutputs_np_aug_subsys,
-                                                                               NxPerEst + Np * max(1, Nsoil // Nest),
-                                                                               NyPerEst,
-                                                                               j)  # calculate current state estimate according to the optimization results
-                fie_timeSolve += time.time()
-                fie_SolverConstructed_List[i // calNode - 1, j] = fie_timeBuild
-                fie_SolverTimeUsed_List[i // calNode - 1, j] = fie_timeSolve
-                print('This FIE solver used', fie_timeBuild, 'secs to build')
-                print('This FIE solver used', fie_timeSolve, 'secs to solve')
-                print('This FIE solver used', fie_timeBuild + fie_timeSolve, 'secs')
-            else:
-                print('****************************************** MHE ******************************************')
-                print('Current instant:', i, 'Current hour:', i / (3600 / DeltaT), 'Estimator No.', j + 1)
-                filter_smoother += 'filter'
-                arr_cost += 'yes'
-                u_in2, qleft_in2, qright_in2, para_in2, x_in2, y_in2, P_in2, Q_in2, R_in2, x_bar = mhe_prepare(i, j, Nmhe*calNode, x_bar_allEst, y, uu, x_in_allEst, KFun_np, NxPerEst, Nu, Ninfo, Nest, Nsoil, Np, dz, ParsNp, calNode, Nmhe, Nx_aug, ybegin, yend, P0, Q, R)
+            fie_timeBuild = -time.time()
+            print('Start constructing the solver')
+            solver, lbdv, ubdv, lbg, ubg = mhe_discrete(Pinv, Q_in1, R_in1, i, tol_desired, I_est, F_N_casadi_est, 'fie',
+                                                        getOutputs_mx_aug_subsys, Nu, Ninfo, Np, j,
+                                                        calNode)  # full information estimation
+            fie_timeBuild += time.time()
+            # ---------------------------------------------------------------------------------------------------
+            x_flat, y_flat, u_flat, qleft_flat, qright_flat, para_flat, _ = flaten(x_in1, y_in1, u_in1, qleft_in1, qright_in1, para_in1, P_in1, i, Nsoil, Nest, NxPerEst, Nu, Ninfo, Np, Nmhe, NyPerEst, calNode)
+            x0 = np.concatenate(
+                (x_flat, np.zeros((NxPerEst + Np * max(1, Nsoil // Nest)) * i), y_flat, u_flat, qleft_flat, qright_flat, para_flat, x_bar))
+            # ---------------------------------------------------------------------------------------------------
+            fie_timeSolve = -time.time()
+            sol = solver(x0=vertcat(x0), lbx=vertcat(lbdv, y_flat, u_flat, qleft_flat, qright_flat, para_flat, x_bar),
+                         ubx=vertcat(ubdv, y_flat, u_flat, qleft_flat, qright_flat, para_flat, x_bar), lbg=lbg, ubg=ubg)
+            x_opt = sol['x'].full().ravel()
+            x_mhe_next, X_allInWin, W_allInWin, Y_allInWin = cal_cur_state(x_opt, u_in1, i, I_est, F_N_casadi_est,
+                                                                           getOutputs_np_aug_subsys,
+                                                                           NxPerEst + Np * max(1, Nsoil // Nest),
+                                                                           NyPerEst,
+                                                                           j)  # calculate current state estimate according to the optimization results
+            fie_timeSolve += time.time()
+            fie_SolverConstructed_List[i // calNode - 1, j] = fie_timeBuild
+            fie_SolverTimeUsed_List[i // calNode - 1, j] = fie_timeSolve
+            print('This FIE solver used', fie_timeBuild, 'secs to build')
+            print('This FIE solver used', fie_timeSolve, 'secs to solve')
+            print('This FIE solver used', fie_timeBuild + fie_timeSolve, 'secs')
+        else:
+            print('****************************************** MHE ******************************************')
+            print('Current instant:', i, 'Current hour:', i / (3600 / DeltaT), 'Estimator No.', j + 1)
+            filter_smoother += 'filter'
+            arr_cost += 'yes'
+            u_in2, qleft_in2, qright_in2, para_in2, x_in2, y_in2, P_in2, Q_in2, R_in2, x_bar = mhe_prepare(i, j, Nmhe*calNode, x_bar_allEst, y, uu, x_in_allEst, KFun_np, NxPerEst, Nu, Ninfo, Nest, Nsoil, Np, dz, ParsNp, calNode, Nmhe, Nx_aug, ybegin, yend, P0, Q, R)
 
-                Pinv = linalg.inv(P_in2)
+            Pinv = linalg.inv(P_in2)
 
-                if i // calNode == Nmhe + 1:
-                    mhe_timeBuild = -time.time()
-                    solver_mhe, lbdv, ubdv, lbg, ubg = mhe_discrete(Pinv, Q_in2, R_in2, Nmhe * calNode, tol_desired, I_est,
-                                                                F_N_casadi_est, 'mhe', getOutputs_mx_aug_subsys, Nu, Ninfo, Np,
-                                                                j, calNode)  # full information estimation
-                    mhe_timeBuild += time.time()
-                    print('Time used to build MHE is', mhe_timeBuild)
-                    solverList += [solver_mhe]
-                # ---------------------------------------------------------------------------------------------------
-                x_flat, y_flat, u_flat, qleft_flat, qright_flat, para_flat, _ = flaten(x_in2, y_in2, u_in2, qleft_in2, qright_in2, para_in2, P_in2, Nmhe*calNode, Nsoil, Nest, NxPerEst, Nu, Ninfo, Np, Nmhe, NyPerEst, calNode)
-                x0 = np.concatenate((x_flat, np.zeros((NxPerEst + Np * max(1, Nsoil // Nest)) * Nmhe * calNode), y_flat,
-                                     u_flat, qleft_flat, qright_flat, para_flat, x_bar))
-                # ---------------------------------------------------------------------------------------------------
-                solver = solverList[j]
-                mhe_timeSolve = -time.time()
-                sol = solver(x0=vertcat(x0), lbx=vertcat(lbdv, y_flat, u_flat, qleft_flat, qright_flat, para_flat, x_bar),
-                             ubx=vertcat(ubdv, y_flat, u_flat, qleft_flat, qright_flat, para_flat, x_bar), lbg=lbg, ubg=ubg)
-                x_opt = sol['x'].full().ravel()
-                x_mhe_next, X_allInWin, W_allInWin, Y_allInWin = cal_cur_state(x_opt, u_in2, Nmhe * calNode, I_est,
-                                                                               F_N_casadi_est, getOutputs_np_aug_subsys,
-                                                                               NxPerEst + Np * max(1, Nsoil // Nest),
-                                                                               NyPerEst,
-                                                                               j)  # calculate current state estimate according to the optimization results
-                mhe_timeSolve += time.time()
-                mhe_SolverConstructed_List[i // calNode - 1 - Nmhe, j] = mhe_timeBuild
-                mhe_SolverTimeUsed_List[i // calNode - 1 - Nmhe, j] = mhe_timeSolve
-                print('This MHE used', mhe_timeSolve, 'secs to solve')
+            if i // calNode == Nmhe + 1:
+                mhe_timeBuild = -time.time()
+                solver_mhe, lbdv, ubdv, lbg, ubg = mhe_discrete(Pinv, Q_in2, R_in2, Nmhe * calNode, tol_desired, I_est,
+                                                            F_N_casadi_est, 'mhe', getOutputs_mx_aug_subsys, Nu, Ninfo, Np,
+                                                            j, calNode)  # full information estimation
+                mhe_timeBuild += time.time()
+                print('Time used to build MHE is', mhe_timeBuild)
+                solverList += [solver_mhe]
+            # ---------------------------------------------------------------------------------------------------
+            x_flat, y_flat, u_flat, qleft_flat, qright_flat, para_flat, _ = flaten(x_in2, y_in2, u_in2, qleft_in2, qright_in2, para_in2, P_in2, Nmhe*calNode, Nsoil, Nest, NxPerEst, Nu, Ninfo, Np, Nmhe, NyPerEst, calNode)
+            x0 = np.concatenate((x_flat, np.zeros((NxPerEst + Np * max(1, Nsoil // Nest)) * Nmhe * calNode), y_flat,
+                                 u_flat, qleft_flat, qright_flat, para_flat, x_bar))
+            # ---------------------------------------------------------------------------------------------------
+            solver = solverList[j]
+            mhe_timeSolve = -time.time()
+            sol = solver(x0=vertcat(x0), lbx=vertcat(lbdv, y_flat, u_flat, qleft_flat, qright_flat, para_flat, x_bar),
+                         ubx=vertcat(ubdv, y_flat, u_flat, qleft_flat, qright_flat, para_flat, x_bar), lbg=lbg, ubg=ubg)
+            x_opt = sol['x'].full().ravel()
+            x_mhe_next, X_allInWin, W_allInWin, Y_allInWin = cal_cur_state(x_opt, u_in2, Nmhe * calNode, I_est,
+                                                                           F_N_casadi_est, getOutputs_np_aug_subsys,
+                                                                           NxPerEst + Np * max(1, Nsoil // Nest),
+                                                                           NyPerEst,
+                                                                           j)  # calculate current state estimate according to the optimization results
+            mhe_timeSolve += time.time()
+            mhe_SolverConstructed_List[i // calNode - 1 - Nmhe, j] = mhe_timeBuild
+            mhe_SolverTimeUsed_List[i // calNode - 1 - Nmhe, j] = mhe_timeSolve
+            print('This MHE used', mhe_timeSolve, 'secs to solve')
+        # TODO: Before here, we need to put then into iteration
 
-            x_mhe[i//calNode,:, j] = x_mhe_next
-            y_mhe[i//calNode,:, j] = getOutputs_np_aug_subsys(x_mhe[i//calNode, :, j], j)
+        x_mhe[i//calNode,:, j] = x_mhe_next
+        y_mhe[i//calNode,:, j] = getOutputs_np_aug_subsys(x_mhe[i//calNode, :, j], j)
 
-            X_allInWin_allEst[0:min(i, Nmhe*calNode)+1,:,j] = X_allInWin
-            W_allInWin_allEst[0:min(i, Nmhe*calNode),:,j] = W_allInWin
-            Y_allInWin_allEst[0:min(i, Nmhe*calNode)+1,:,j] = Y_allInWin
+        X_allInWin_allEst[0:min(i, Nmhe*calNode)+1,:,j] = X_allInWin
+        W_allInWin_allEst[0:min(i, Nmhe*calNode),:,j] = W_allInWin
+        Y_allInWin_allEst[0:min(i, Nmhe*calNode)+1,:,j] = Y_allInWin
 
-            # calculate the estimation performance index
-            if Nest == 1:
-                y_mhe_timeS[i//calNode, :] = y_mhe[i//calNode, :, 0]
-                x_mhe_timeS[i//calNode, :] = x_mhe[i//calNode, :Nx, 0]
-                p_mhe_timeS[i//calNode, :] = x_mhe[i//calNode, Nx:, 0]
+        # calculate the estimation performance index
+        if Nest == 1:
+            y_mhe_timeS[i//calNode, :] = y_mhe[i//calNode, :, 0]
+            x_mhe_timeS[i//calNode, :] = x_mhe[i//calNode, :Nx, 0]
+            p_mhe_timeS[i//calNode, :] = x_mhe[i//calNode, Nx:, 0]
 
-            elif Nest == 2:
-                y_mhe_timeS[i//calNode, ybegin:yend] = y_mhe[i//calNode, :, j]
+        elif Nest == 2:
+            y_mhe_timeS[i//calNode, ybegin:yend] = y_mhe[i//calNode, :, j]
 
-                x_mhe_timeS[i//calNode, xbegin:xend] = x_mhe[i//calNode, :NxPerEst, j]
+            x_mhe_timeS[i//calNode, xbegin:xend] = x_mhe[i//calNode, :NxPerEst, j]
 
-                p_mhe_timeS[i//calNode, pbegin:pend] = x_mhe[i//calNode, NxPerEst:, j]
+            p_mhe_timeS[i//calNode, pbegin:pend] = x_mhe[i//calNode, NxPerEst:, j]
 
-            print('Para are: ', x_mhe_next[-Np*max(1, Nsoil//Nest):])
-            MHEFIEtotalTime += time.time()
-        RMSE_Y[i] = np.sqrt(np.sum((y[i] - y_mhe_timeS[i]) ** 2) / Ny)
-        RMSE_X[i] = np.sqrt(np.sum((x[i, :Nx] - x_mhe_timeS[i]) ** 2) / Nx)
-        RMSE_P[i] = np.sqrt(np.sum((x[i, Nx:] - p_mhe_timeS[i]) ** 2) / NpTotal)
-        print('RMSE_Y is', RMSE_Y[i-1:i+1])
-        print('RMSE_X is', RMSE_X[i - 1:i + 1])
-        print('RMSE_P is', RMSE_P[i - 1:i + 1])
-        io.savemat('Data/x.mat', dict(t=Tplot, dt=DeltaT, xmea=x, xmhe=x_mhe, xol=x_ol, xclean=x_clean))
-        io.savemat('Data/y.mat', dict(t=Tplot, dt=DeltaT, ymea=y, ymhe=y_mhe, yol=y_ol, yclean=y_clean))
-        io.savemat('Data/timeUsed.mat', dict(fie_timeUsedBuild_list=fie_SolverConstructed_List,
-                                             fie_timeUsedSolve_list=fie_SolverTimeUsed_List,
-                                             mhe_timeUsedBuild_list=mhe_SolverConstructed_List,
-                                             mhe_timeUsedSolve_list=mhe_SolverTimeUsed_List))
+        print('Para are: ', x_mhe_next[-Np*max(1, Nsoil//Nest):])
+        MHEFIEtotalTime += time.time()
+    RMSE_Y[i] = np.sqrt(np.sum((y[i] - y_mhe_timeS[i]) ** 2) / Ny)
+    RMSE_X[i] = np.sqrt(np.sum((x[i, :Nx] - x_mhe_timeS[i]) ** 2) / Nx)
+    RMSE_P[i] = np.sqrt(np.sum((x[i, Nx:] - p_mhe_timeS[i]) ** 2) / NpTotal)
+    print('RMSE_Y is', RMSE_Y[i-1:i+1])
+    print('RMSE_X is', RMSE_X[i - 1:i + 1])
+    print('RMSE_P is', RMSE_P[i - 1:i + 1])
+    io.savemat('Data/x.mat', dict(t=Tplot, dt=DeltaT, xmea=x, xmhe=x_mhe, xol=x_ol, xclean=x_clean))
+    io.savemat('Data/y.mat', dict(t=Tplot, dt=DeltaT, ymea=y, ymhe=y_mhe, yol=y_ol, yclean=y_clean))
+    io.savemat('Data/timeUsed.mat', dict(fie_timeUsedBuild_list=fie_SolverConstructed_List,
+                                         fie_timeUsedSolve_list=fie_SolverTimeUsed_List,
+                                         mhe_timeUsedBuild_list=mhe_SolverConstructed_List,
+                                         mhe_timeUsedSolve_list=mhe_SolverTimeUsed_List))
 # ======================================================================================================================
 solvetime += time.time()
 mhe_timeUsed_avg = np.average(mhe_SolverTimeUsed_List)
@@ -581,24 +504,25 @@ if seedpoint == []:
 else:
         print('Nmhe is: ', Nmhe, ', dt_internal is: ', DeltaT_internal, 'tol is: ', tol_desired, ', seedpoint is: ',seedpoint, ' Initial state is NOT estimated.')
 
-x_dis_timeS = np.zeros((Nsim+1, Nx_aug))
-x_clean_dis_timeS = np.zeros((Nsim+1, Nx_aug))
-x_ol_dis_timeS = np.zeros((Nsim+1, Nx_aug))
+if Nest != 1:
+    x_dis_timeS = np.zeros((Nsim+1, Nx_aug))
+    x_clean_dis_timeS = np.zeros((Nsim+1, Nx_aug))
+    x_ol_dis_timeS = np.zeros((Nsim+1, Nx_aug))
 
-x_dis_timeS[:,0:NxPerEst] = x_dis[:,:NxPerEst,0]
-x_dis_timeS[:,NxPerEst:Nx] = x_dis[:,:NxPerEst,1]
-x_dis_timeS[:,Nx:Nx+Np] = x_dis[:,NxPerEst:,0]
-x_dis_timeS[:,Nx+Np:] = x_dis[:,NxPerEst:,1]
+    x_dis_timeS[:,0:NxPerEst] = x_dis[:,:NxPerEst,0]
+    x_dis_timeS[:,NxPerEst:Nx] = x_dis[:,:NxPerEst,1]
+    x_dis_timeS[:,Nx:Nx+Np] = x_dis[:,NxPerEst:,0]
+    x_dis_timeS[:,Nx+Np:] = x_dis[:,NxPerEst:,1]
 
-x_clean_dis_timeS[:,0:NxPerEst] = x_clean_dis[:,:NxPerEst,0]
-x_clean_dis_timeS[:,NxPerEst:Nx] = x_clean_dis[:,:NxPerEst,1]
-x_clean_dis_timeS[:,Nx:Nx+Np] = x_clean_dis[:,NxPerEst:,0]
-x_clean_dis_timeS[:,Nx+Np:] = x_clean_dis[:,NxPerEst:,1]
+    x_clean_dis_timeS[:,0:NxPerEst] = x_clean_dis[:,:NxPerEst,0]
+    x_clean_dis_timeS[:,NxPerEst:Nx] = x_clean_dis[:,:NxPerEst,1]
+    x_clean_dis_timeS[:,Nx:Nx+Np] = x_clean_dis[:,NxPerEst:,0]
+    x_clean_dis_timeS[:,Nx+Np:] = x_clean_dis[:,NxPerEst:,1]
 
-x_ol_dis_timeS[:,0:NxPerEst] = x_ol_dis[:,:NxPerEst,0]
-x_ol_dis_timeS[:,NxPerEst:Nx] = x_ol_dis[:,:NxPerEst,1]
-x_ol_dis_timeS[:,Nx:Nx+Np] = x_ol_dis[:,NxPerEst:,0]
-x_ol_dis_timeS[:,Nx+Np:] = x_ol_dis[:,NxPerEst:,1]
+    x_ol_dis_timeS[:,0:NxPerEst] = x_ol_dis[:,:NxPerEst,0]
+    x_ol_dis_timeS[:,NxPerEst:Nx] = x_ol_dis[:,:NxPerEst,1]
+    x_ol_dis_timeS[:,Nx:Nx+Np] = x_ol_dis[:,NxPerEst:,0]
+    x_ol_dis_timeS[:,Nx+Np:] = x_ol_dis[:,NxPerEst:,1]
 
 # Make a plot of RMSE --------------------------------------------------------------------------------------------------
 startPlotPoint = 0
@@ -642,7 +566,7 @@ for j in range(Nest):
     for i in range(NyPerEst):
         plt.figure()
         plt.plot(Tplot[:]/DeltaT, y[:, NyPerEst*j+i], '-', label='y_exp')
-        plt.plot(Tplot[:]/DeltaT, y_dis[:(Nsim//calNode)+1, i, j], '--', label='y_exp_subsys')
+        #plt.plot(Tplot[:]/DeltaT, y_dis[:(Nsim//calNode)+1, i, j], '--', label='y_exp_subsys')
         # plt.plot(Tplot[:]/DeltaT, y_ekf_plot[:, i], '.', markersize=3, label='y_ekf')
         # plt.plot(Tplot[::calNode]/DeltaT, y_enkf_plot[::calNode, i], '.', markersize=3, label='y_enkf')
         plt.plot(Tplot[::calNode]/DeltaT, y_mhe[:(Nsim//calNode)+1, i, j], '.', markersize=4, label='y_mhe')
@@ -703,7 +627,7 @@ io.savemat('timeUsed.mat', dict(fie_timeUsedBuild_list=fie_SolverConstructed_Lis
 # io.savemat('space_parameters.mat', dict(Nx=Nx, Nw=Nw, Ny=Ny, Nv=Nv, Nu=Nu, Np=Np, dz=dz, Nx_aug=Nx_aug, Nw_aug=Nx_aug, Nest=Nest, NxPerEst=NxPerEst, NyPerEst=NyPerEst))
 io.savemat('space_parameters.mat', spacePara_dict)
 io.savemat('time_parameters.mat', dict(DeltaT=DeltaT, Tsim=Tsim, Nsim=Nsim, DeltaT_internal=DeltaT_internal, Nsim_internal=Nsim_internal, Tplot=Tplot, Nmhe=Nmhe, DeltaTmhe=DeltaTmhe, calNode=calNode))
-io.savemat('Results/CHE694_optimization/model_parameters.mat', dict(ParsDict=ParsDict, ParsNp=ParsNp, ParsScale=ParsScale))
+io.savemat('model_parameters.mat', dict(ParsDict=ParsDict, ParsNp=ParsNp, ParsScale=ParsScale))
 io.savemat('weight_matrices.mat', dict(P0=P0, Q=Q, R=R, noise_w=noise_w, noise_v=noise_v))
 io.savemat('mhe_bounds.mat', dict(xlower=xlower, xupper=xupper, wlower=wlower, wupper=wupper, xlower_fie=xlower_fie, xupper_fie=xupper_fie))
 io.savemat('mhe_setup.mat', dict(filter_smooter=filter_smoother, arr_cost=arr_cost))
