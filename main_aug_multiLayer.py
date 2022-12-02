@@ -214,6 +214,14 @@ Y_allInWin_allEst = np.zeros((Nmhe*calNode+1, (NyPerEst), Nest))
 x_bar_allEst = np.zeros((NxPerEst+Np*max(1, Nsoil//Nest), Nest))
 x_bar_allEst_alt = np.zeros((NxPerEst+Np*max(1, Nsoil//Nest), Nest))
 
+# For iteration at each time instant -------------------------------
+numIter = 100
+tol = 1e-8  # todo: can be modified later.
+# initialize
+x_sub1 = np.zeros((numIter + 1, NxPerEst+Np*max(1, Nsoil//Nest)))  # number of rows = iteration numbers + 1 (0 to numIter)
+                                                                    # number of columns =  total # of elements (states and parameters) in each subsystem
+x_sub2 = np.zeros((numIter + 1, NxPerEst+Np*max(1, Nsoil//Nest)))
+
 # For error -------------------------------------------------------
 RMSE_Y = np.zeros(Nsim//calNode+1)
 RMSE_X = np.zeros(Nsim//calNode+1)
@@ -326,7 +334,8 @@ I_est = integrator('I_est', 'cvodes', ode_est, opts)  # Build casadi integrator
 # Simulation begins here ===============================================================================================
 solvetime = -time.time()
 for i in range(1, Nsim+1):
-    print()
+    print('*****************************************************************************************')
+    print('*****************************************************************************************')
     print('Previous time: ', i-1, ', current time: ', i)
     if seedpoint == []:
         print('Nmhe is:', Nmhe, ', dt_internal is:', DeltaT_internal, ', tol is:', tol_desired, ', seedpoint is empty')
@@ -375,112 +384,133 @@ for i in range(1, Nsim+1):
     x_in_allEst = np.zeros((min(i, Nmhe*calNode) + 1, NxPerEst + Np*max(1, Nsoil//Nest), Nest))  # for all estimators
     x_in_allEst_alt = np.zeros((min(i, Nmhe*calNode) + 1, NxPerEst + Np*max(1, Nsoil//Nest), Nest))
 
-    ''' Preparation '''
-    x_bar_allEst, x_in_allEst = filter_smoother_scheme('filter', x_bar_allEst, x_in_allEst, x_mhe, x_ol, X_allInWin_allEst, i, calNode, Nmhe, Nx, Np, Nsoil, Nest, NxPerEst, NyPerEst)  # Now we only have code for smoother
+    # TODO: After here, we need to put them into iteration. Follow Haihan's code to modify
+    for itr in range(numIter):  # Do Jacobi iteration
+        print('Running iteration', itr, 'at time instant', i)
 
-    for j in range(Nest):
-        # TODO: After here, we need to put them into iteration. Follow Haihan's code to modify
-        xbegin = j*NxPerEst
-        xend = (j+1)*NxPerEst
-        ybegin = j*NyPerEst
-        yend = (j+1)*NyPerEst
-        pbegin = j*Np
-        pend = (j+1)*Np
-        if i // calNode <= Nmhe:  # use FIE, else use mhe
-            print('****************************************** FIE ******************************************')
-            print('Current instant:', i, 'Current hour:', i / (3600 / DeltaT), 'Estimator No.', j + 1)
-            filter_smoother += 'filter'
-            arr_cost += 'yes'
-            u_in1, qleft_in1, qright_in1, para_in1, x_in1, y_in1, P_in1, Q_in1, R_in1, x_bar = mhe_prepare(i, j, i, x_bar_allEst, y, uu, x_in_allEst, KFun_np, NxPerEst, Nu, Ninfo, Nest, Nsoil, Np, dz, ParsNp, calNode, Nmhe, Nx_aug, ybegin, yend, P0, Q, R)
+        # Todo: need to figure out what is the input and output for the following codes
+        # Inputs: X_allInWin_allEST - For smoother scheme: Used to create the arrival state (x_bar) and initial guess (x_in)
+        #           x_mhe - For filter: used to create the arrival state (x_bar) and initial guess (x_in)
+        ''' Preparation '''
+        # The following code is the most important, because it includes the information needed for exchanging
+        x_bar_allEst, x_in_allEst = filter_smoother_scheme('filter', x_bar_allEst, x_in_allEst, x_mhe, x_ol,
+                                                           X_allInWin_allEst, i, calNode, Nmhe, Nx, Np, Nsoil, Nest,
+                                                           NxPerEst, NyPerEst, itr)  # Now we only have code for smoother
+        for j in range(Nest):
+            xbegin = j*NxPerEst
+            xend = (j+1)*NxPerEst
+            ybegin = j*NyPerEst
+            yend = (j+1)*NyPerEst
+            pbegin = j*Np
+            pend = (j+1)*Np
+            if i // calNode <= Nmhe:  # use FIE, else use mhe
+                print('****************************************** FIE ******************************************')
+                print('Current instant:', i, 'Current hour:', i / (3600 / DeltaT), 'Estimator No.', j + 1)
+                filter_smoother += 'filter'
+                arr_cost += 'yes'
+                # The information exchange happens in the following line
+                u_in1, qleft_in1, qright_in1, para_in1, x_in1, y_in1, P_in1, Q_in1, R_in1, x_bar = mhe_prepare(i, j, i, x_bar_allEst, y, uu, x_in_allEst, KFun_np, NxPerEst, Nu, Ninfo, Nest, Nsoil, Np, dz, ParsNp, calNode, Nmhe, Nx_aug, ybegin, yend, P0, Q, R)
 
-            Pinv = linalg.inv(P_in1)
+                Pinv = linalg.inv(P_in1)
 
-            fie_timeBuild = -time.time()
-            print('Start constructing the solver')
-            solver, lbdv, ubdv, lbg, ubg = mhe_discrete(Pinv, Q_in1, R_in1, i, tol_desired, I_est, F_N_casadi_est, 'fie',
-                                                        getOutputs_mx_aug_subsys, Nu, Ninfo, Np, j,
-                                                        calNode)  # full information estimation
-            fie_timeBuild += time.time()
-            # ---------------------------------------------------------------------------------------------------
-            x_flat, y_flat, u_flat, qleft_flat, qright_flat, para_flat, _ = flaten(x_in1, y_in1, u_in1, qleft_in1, qright_in1, para_in1, P_in1, i, Nsoil, Nest, NxPerEst, Nu, Ninfo, Np, Nmhe, NyPerEst, calNode)
-            x0 = np.concatenate(
-                (x_flat, np.zeros((NxPerEst + Np * max(1, Nsoil // Nest)) * i), y_flat, u_flat, qleft_flat, qright_flat, para_flat, x_bar))
-            # ---------------------------------------------------------------------------------------------------
-            fie_timeSolve = -time.time()
-            sol = solver(x0=vertcat(x0), lbx=vertcat(lbdv, y_flat, u_flat, qleft_flat, qright_flat, para_flat, x_bar),
-                         ubx=vertcat(ubdv, y_flat, u_flat, qleft_flat, qright_flat, para_flat, x_bar), lbg=lbg, ubg=ubg)
-            x_opt = sol['x'].full().ravel()
-            x_mhe_next, X_allInWin, W_allInWin, Y_allInWin = cal_cur_state(x_opt, u_in1, i, I_est, F_N_casadi_est,
-                                                                           getOutputs_np_aug_subsys,
-                                                                           NxPerEst + Np * max(1, Nsoil // Nest),
-                                                                           NyPerEst,
-                                                                           j)  # calculate current state estimate according to the optimization results
-            fie_timeSolve += time.time()
-            fie_SolverConstructed_List[i // calNode - 1, j] = fie_timeBuild
-            fie_SolverTimeUsed_List[i // calNode - 1, j] = fie_timeSolve
-            print('This FIE solver used', fie_timeBuild, 'secs to build')
-            print('This FIE solver used', fie_timeSolve, 'secs to solve')
-            print('This FIE solver used', fie_timeBuild + fie_timeSolve, 'secs')
-        else:
-            print('****************************************** MHE ******************************************')
-            print('Current instant:', i, 'Current hour:', i / (3600 / DeltaT), 'Estimator No.', j + 1)
-            filter_smoother += 'filter'
-            arr_cost += 'yes'
-            u_in2, qleft_in2, qright_in2, para_in2, x_in2, y_in2, P_in2, Q_in2, R_in2, x_bar = mhe_prepare(i, j, Nmhe*calNode, x_bar_allEst, y, uu, x_in_allEst, KFun_np, NxPerEst, Nu, Ninfo, Nest, Nsoil, Np, dz, ParsNp, calNode, Nmhe, Nx_aug, ybegin, yend, P0, Q, R)
+                fie_timeBuild = -time.time()
+                print('Start constructing the solver')
+                solver, lbdv, ubdv, lbg, ubg = mhe_discrete(Pinv, Q_in1, R_in1, i, tol_desired, I_est, F_N_casadi_est, 'fie',
+                                                            getOutputs_mx_aug_subsys, Nu, Ninfo, Np, j,
+                                                            calNode)  # full information estimation
+                fie_timeBuild += time.time()
+                # ---------------------------------------------------------------------------------------------------
+                x_flat, y_flat, u_flat, qleft_flat, qright_flat, para_flat, _ = flaten(x_in1, y_in1, u_in1, qleft_in1, qright_in1, para_in1, P_in1, i, Nsoil, Nest, NxPerEst, Nu, Ninfo, Np, Nmhe, NyPerEst, calNode)
+                x0 = np.concatenate(
+                    (x_flat, np.zeros((NxPerEst + Np * max(1, Nsoil // Nest)) * i), y_flat, u_flat, qleft_flat, qright_flat, para_flat, x_bar))
+                # ---------------------------------------------------------------------------------------------------
+                fie_timeSolve = -time.time()
+                sol = solver(x0=vertcat(x0), lbx=vertcat(lbdv, y_flat, u_flat, qleft_flat, qright_flat, para_flat, x_bar),
+                             ubx=vertcat(ubdv, y_flat, u_flat, qleft_flat, qright_flat, para_flat, x_bar), lbg=lbg, ubg=ubg)
+                x_opt = sol['x'].full().ravel()
+                x_mhe_next, X_allInWin, W_allInWin, Y_allInWin = cal_cur_state(x_opt, u_in1, i, I_est, F_N_casadi_est,
+                                                                               getOutputs_np_aug_subsys,
+                                                                               NxPerEst + Np * max(1, Nsoil // Nest),
+                                                                               NyPerEst,
+                                                                               j)  # calculate current state estimate according to the optimization results
+                fie_timeSolve += time.time()
+                fie_SolverConstructed_List[i // calNode - 1, j] = fie_timeBuild
+                fie_SolverTimeUsed_List[i // calNode - 1, j] = fie_timeSolve
+                print('This FIE solver used', fie_timeBuild, 'secs to build')
+                print('This FIE solver used', fie_timeSolve, 'secs to solve')
+                print('This FIE solver used', fie_timeBuild + fie_timeSolve, 'secs')
+            else:
+                print('****************************************** MHE ******************************************')
+                print('Current instant:', i, 'Current hour:', i / (3600 / DeltaT), 'Estimator No.', j + 1)
+                filter_smoother += 'filter'
+                arr_cost += 'yes'
+                u_in2, qleft_in2, qright_in2, para_in2, x_in2, y_in2, P_in2, Q_in2, R_in2, x_bar = mhe_prepare(i, j, Nmhe*calNode, x_bar_allEst, y, uu, x_in_allEst, KFun_np, NxPerEst, Nu, Ninfo, Nest, Nsoil, Np, dz, ParsNp, calNode, Nmhe, Nx_aug, ybegin, yend, P0, Q, R)
 
-            Pinv = linalg.inv(P_in2)
+                Pinv = linalg.inv(P_in2)
 
-            if i // calNode == Nmhe + 1:
-                mhe_timeBuild = -time.time()
-                solver_mhe, lbdv, ubdv, lbg, ubg = mhe_discrete(Pinv, Q_in2, R_in2, Nmhe * calNode, tol_desired, I_est,
-                                                            F_N_casadi_est, 'mhe', getOutputs_mx_aug_subsys, Nu, Ninfo, Np,
-                                                            j, calNode)  # full information estimation
-                mhe_timeBuild += time.time()
-                print('Time used to build MHE is', mhe_timeBuild)
-                solverList += [solver_mhe]
-            # ---------------------------------------------------------------------------------------------------
-            x_flat, y_flat, u_flat, qleft_flat, qright_flat, para_flat, _ = flaten(x_in2, y_in2, u_in2, qleft_in2, qright_in2, para_in2, P_in2, Nmhe*calNode, Nsoil, Nest, NxPerEst, Nu, Ninfo, Np, Nmhe, NyPerEst, calNode)
-            x0 = np.concatenate((x_flat, np.zeros((NxPerEst + Np * max(1, Nsoil // Nest)) * Nmhe * calNode), y_flat,
-                                 u_flat, qleft_flat, qright_flat, para_flat, x_bar))
-            # ---------------------------------------------------------------------------------------------------
-            solver = solverList[j]
-            mhe_timeSolve = -time.time()
-            sol = solver(x0=vertcat(x0), lbx=vertcat(lbdv, y_flat, u_flat, qleft_flat, qright_flat, para_flat, x_bar),
-                         ubx=vertcat(ubdv, y_flat, u_flat, qleft_flat, qright_flat, para_flat, x_bar), lbg=lbg, ubg=ubg)
-            x_opt = sol['x'].full().ravel()
-            x_mhe_next, X_allInWin, W_allInWin, Y_allInWin = cal_cur_state(x_opt, u_in2, Nmhe * calNode, I_est,
-                                                                           F_N_casadi_est, getOutputs_np_aug_subsys,
-                                                                           NxPerEst + Np * max(1, Nsoil // Nest),
-                                                                           NyPerEst,
-                                                                           j)  # calculate current state estimate according to the optimization results
-            mhe_timeSolve += time.time()
-            mhe_SolverConstructed_List[i // calNode - 1 - Nmhe, j] = mhe_timeBuild
-            mhe_SolverTimeUsed_List[i // calNode - 1 - Nmhe, j] = mhe_timeSolve
-            print('This MHE used', mhe_timeSolve, 'secs to solve')
+                if i // calNode == Nmhe + 1:
+                    mhe_timeBuild = -time.time()
+                    solver_mhe, lbdv, ubdv, lbg, ubg = mhe_discrete(Pinv, Q_in2, R_in2, Nmhe * calNode, tol_desired, I_est,
+                                                                F_N_casadi_est, 'mhe', getOutputs_mx_aug_subsys, Nu, Ninfo, Np,
+                                                                j, calNode)  # full information estimation
+                    mhe_timeBuild += time.time()
+                    print('Time used to build MHE is', mhe_timeBuild)
+                    solverList += [solver_mhe]
+                # ---------------------------------------------------------------------------------------------------
+                x_flat, y_flat, u_flat, qleft_flat, qright_flat, para_flat, _ = flaten(x_in2, y_in2, u_in2, qleft_in2, qright_in2, para_in2, P_in2, Nmhe*calNode, Nsoil, Nest, NxPerEst, Nu, Ninfo, Np, Nmhe, NyPerEst, calNode)
+                x0 = np.concatenate((x_flat, np.zeros((NxPerEst + Np * max(1, Nsoil // Nest)) * Nmhe * calNode), y_flat,
+                                     u_flat, qleft_flat, qright_flat, para_flat, x_bar))
+                # ---------------------------------------------------------------------------------------------------
+                solver = solverList[j]
+                mhe_timeSolve = -time.time()
+                sol = solver(x0=vertcat(x0), lbx=vertcat(lbdv, y_flat, u_flat, qleft_flat, qright_flat, para_flat, x_bar),
+                             ubx=vertcat(ubdv, y_flat, u_flat, qleft_flat, qright_flat, para_flat, x_bar), lbg=lbg, ubg=ubg)
+                x_opt = sol['x'].full().ravel()
+                x_mhe_next, X_allInWin, W_allInWin, Y_allInWin = cal_cur_state(x_opt, u_in2, Nmhe * calNode, I_est,
+                                                                               F_N_casadi_est, getOutputs_np_aug_subsys,
+                                                                               NxPerEst + Np * max(1, Nsoil // Nest),
+                                                                               NyPerEst,
+                                                                               j)  # calculate current state estimate according to the optimization results
+                mhe_timeSolve += time.time()
+                mhe_SolverConstructed_List[i // calNode - 1 - Nmhe, j] = mhe_timeBuild
+                mhe_SolverTimeUsed_List[i // calNode - 1 - Nmhe, j] = mhe_timeSolve
+                print('This MHE used', mhe_timeSolve, 'secs to solve')
+
+            # Save the outputs into array for storing iteration results
+            # Outputs for above MHE are: x_mhe_next, X_allInWin, W_allInWin, Y_allInWin
+            x_mhe[i//calNode,:, j] = x_mhe_next
+            y_mhe[i//calNode,:, j] = getOutputs_np_aug_subsys(x_mhe[i//calNode, :, j], j)
+
+            X_allInWin_allEst[0:min(i, Nmhe*calNode)+1,:,j] = X_allInWin
+            W_allInWin_allEst[0:min(i, Nmhe*calNode),:,j] = W_allInWin
+            Y_allInWin_allEst[0:min(i, Nmhe*calNode)+1,:,j] = Y_allInWin
+
+            # calculate the estimation performance index
+            if Nest == 1:
+                y_mhe_timeS[i//calNode, :] = y_mhe[i//calNode, :, 0]
+                x_mhe_timeS[i//calNode, :] = x_mhe[i//calNode, :Nx, 0]
+                p_mhe_timeS[i//calNode, :] = x_mhe[i//calNode, Nx:, 0]
+
+            elif Nest == 2:
+                y_mhe_timeS[i//calNode, ybegin:yend] = y_mhe[i//calNode, :, j]
+                x_mhe_timeS[i//calNode, xbegin:xend] = x_mhe[i//calNode, :NxPerEst, j]
+                p_mhe_timeS[i//calNode, pbegin:pend] = x_mhe[i//calNode, NxPerEst:, j]
+
+            print('Para are: ', x_mhe_next[-Np*max(1, Nsoil//Nest):])
+            MHEFIEtotalTime += time.time()
+
+            # Save iterative results in each array
+            if j == 0:
+                x_sub1[itr] = x_mhe_next
+            elif j == 1:
+                x_sub2[itr] = x_mhe_next
+            else:
+                print('Current code only works for at most 2 subsystems.')
+                quit()
+        if itr > 0:  # Check tolerance after the second iteration is done
+            if (abs(x_sub1[itr] - x_sub1[itr-1]) < tol).all() and (abs(x_sub2[itr] - x_sub2[itr-1]) < tol).all():
+                break  # Break the for loop
         # TODO: Before here, we need to put then into iteration
-
-        x_mhe[i//calNode,:, j] = x_mhe_next
-        y_mhe[i//calNode,:, j] = getOutputs_np_aug_subsys(x_mhe[i//calNode, :, j], j)
-
-        X_allInWin_allEst[0:min(i, Nmhe*calNode)+1,:,j] = X_allInWin
-        W_allInWin_allEst[0:min(i, Nmhe*calNode),:,j] = W_allInWin
-        Y_allInWin_allEst[0:min(i, Nmhe*calNode)+1,:,j] = Y_allInWin
-
-        # calculate the estimation performance index
-        if Nest == 1:
-            y_mhe_timeS[i//calNode, :] = y_mhe[i//calNode, :, 0]
-            x_mhe_timeS[i//calNode, :] = x_mhe[i//calNode, :Nx, 0]
-            p_mhe_timeS[i//calNode, :] = x_mhe[i//calNode, Nx:, 0]
-
-        elif Nest == 2:
-            y_mhe_timeS[i//calNode, ybegin:yend] = y_mhe[i//calNode, :, j]
-
-            x_mhe_timeS[i//calNode, xbegin:xend] = x_mhe[i//calNode, :NxPerEst, j]
-
-            p_mhe_timeS[i//calNode, pbegin:pend] = x_mhe[i//calNode, NxPerEst:, j]
-
-        print('Para are: ', x_mhe_next[-Np*max(1, Nsoil//Nest):])
-        MHEFIEtotalTime += time.time()
     RMSE_Y[i] = np.sqrt(np.sum((y[i] - y_mhe_timeS[i]) ** 2) / Ny)
     RMSE_X[i] = np.sqrt(np.sum((x[i, :Nx] - x_mhe_timeS[i]) ** 2) / Nx)
     RMSE_P[i] = np.sqrt(np.sum((x[i, Nx:] - p_mhe_timeS[i]) ** 2) / NpTotal)

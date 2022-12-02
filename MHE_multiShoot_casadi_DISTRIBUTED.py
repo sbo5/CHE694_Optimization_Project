@@ -167,7 +167,7 @@ def mhe_discrete(Pbar,Q,R,M,tol,I,F_N_casadi,switch,hx,Nu,Ninfo,NumPara,index,ca
     return solver, lbdv, ubdv, lbg, ubg
 
 
-def filter_smoother_scheme(indicator, x_bar_allEst, x_in_allEst, x_mhe, xx_ol, X_allInWin_allEst, i, calNode, Nmhe, Nx, Np, Nsoil, Nest, NxPerEst, NyPerEst):
+def filter_smoother_scheme(indicator, x_bar_allEst, x_in_allEst, x_mhe, xx_ol, X_allInWin_allEst, i, calNode, Nmhe, Nx, Np, Nsoil, Nest, NxPerEst, NyPerEst, itr):
     if indicator == 'smoother':
         for j in range(Nest):
             xbegin = j * NxPerEst
@@ -211,11 +211,13 @@ def filter_smoother_scheme(indicator, x_bar_allEst, x_in_allEst, x_mhe, xx_ol, X
                 # print('Smoother scheme is used')
                 x_bar_allEst[:, j] = x_mhe[0, :, j]
                 x_in_allEst[:, :, j] = x_mhe[0:i + 1, :, j]
-                x_in_allEst[-calNode:, :, j] = x_in_allEst[-calNode - 1, :,j]  # this critical when deltaTmhe > deltaT, since initial guess is not accurate anymore
+                if itr == 0:
+                    x_in_allEst[-calNode:, :, j] = x_in_allEst[-calNode - 1, :,j]  # this critical when deltaTmhe > deltaT, since initial guess is not accurate anymore
             else:  # MHE
                 x_bar_allEst[:, j] = x_mhe[i - Nmhe*calNode, :, j]
                 x_in_allEst[:-calNode, :, j] = x_mhe[i - Nmhe * calNode:i, :, j]
-                x_in_allEst[-calNode:, :, j] = x_in_allEst[-calNode - 1, :, j]
+                if itr == 0:
+                    x_in_allEst[-calNode:, :, j] = x_in_allEst[-calNode - 1, :, j]
     return x_bar_allEst, x_in_allEst
 
 
