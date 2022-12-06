@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on April 2 2019
-
-@author: Song Bo
-"""
-
 from __future__ import (print_function, division)  # Grab some handy Python3 stuff.
 import numpy as np
 from scipy import linalg, integrate, io
@@ -79,13 +72,9 @@ ParsScale_est = ParsScale
 # x0_est = getH0_np_multiLayer(y0_est, ParsNp, ParsScale, Nx, NxPerSoil, Nsoil, Np)
 x0_est = x0[:Nx]
 # Estimating all parameters --------------------
-# ratio = np.array([1,1,1,1,1])
-# ratio = np.array([0.9, 0.9, 0.9, 0.9, 0.9])
-# ratio = np.array([1.1, 1.1, 1.1, 1.1, 1.1])
-# ratio = np.array([0.9, 1.1, 1.0, 1.1, 0.9])
 ratio = np.array([1.1, 0.9, 1.0, 0.9, 1.1])
 ParsScale_est = np.multiply(ratio, ParsScale_est)
-x0_est = 1.2*x0_est
+x0_est = 1.5*x0_est
 for i in range(NpTotal//Np):
     x0_est = np.append(x0_est, ParsScale_est)
 
@@ -215,7 +204,10 @@ x_bar_allEst = np.zeros((NxPerEst+Np*max(1, Nsoil//Nest), Nest))
 x_bar_allEst_alt = np.zeros((NxPerEst+Np*max(1, Nsoil//Nest), Nest))
 
 # For iteration at each time instant -------------------------------
-numIter = 100
+if Nest == 1:
+    numIter = 1
+else:
+    numIter = 100
 tol = 1e-8  # todo: can be modified later.
 # initialize
 x_sub1 = np.zeros((numIter + 1, NxPerEst+Np*max(1, Nsoil//Nest)))  # number of rows = iteration numbers + 1 (0 to numIter)
@@ -434,8 +426,8 @@ for i in range(1, Nsim+1):
                                                                                NyPerEst,
                                                                                j)  # calculate current state estimate according to the optimization results
                 fie_timeSolve += time.time()
-                fie_SolverConstructed_List[i // calNode - 1, j] = fie_timeBuild
-                fie_SolverTimeUsed_List[i // calNode - 1, j] = fie_timeSolve
+                fie_SolverConstructed_List[i // calNode - 1, j] += fie_timeBuild  # Accumulate all iterations at 1 time instant
+                fie_SolverTimeUsed_List[i // calNode - 1, j] += fie_timeSolve
                 print('This FIE solver used', fie_timeBuild, 'secs to build')
                 print('This FIE solver used', fie_timeSolve, 'secs to solve')
                 print('This FIE solver used', fie_timeBuild + fie_timeSolve, 'secs')
@@ -472,8 +464,8 @@ for i in range(1, Nsim+1):
                                                                                NyPerEst,
                                                                                j)  # calculate current state estimate according to the optimization results
                 mhe_timeSolve += time.time()
-                mhe_SolverConstructed_List[i // calNode - 1 - Nmhe, j] = mhe_timeBuild
-                mhe_SolverTimeUsed_List[i // calNode - 1 - Nmhe, j] = mhe_timeSolve
+                mhe_SolverConstructed_List[i // calNode - 1 - Nmhe, j] += mhe_timeBuild
+                mhe_SolverTimeUsed_List[i // calNode - 1 - Nmhe, j] += mhe_timeSolve
                 print('This MHE used', mhe_timeSolve, 'secs to solve')
 
             # Save the outputs into array for storing iteration results
@@ -517,12 +509,12 @@ for i in range(1, Nsim+1):
     print('RMSE_Y is', RMSE_Y[i-1:i+1])
     print('RMSE_X is', RMSE_X[i - 1:i + 1])
     print('RMSE_P is', RMSE_P[i - 1:i + 1])
-    io.savemat('Data/x.mat', dict(t=Tplot, dt=DeltaT, xmea=x, xmhe=x_mhe, xol=x_ol, xclean=x_clean))
-    io.savemat('Data/y.mat', dict(t=Tplot, dt=DeltaT, ymea=y, ymhe=y_mhe, yol=y_ol, yclean=y_clean))
-    io.savemat('Data/timeUsed.mat', dict(fie_timeUsedBuild_list=fie_SolverConstructed_List,
-                                         fie_timeUsedSolve_list=fie_SolverTimeUsed_List,
-                                         mhe_timeUsedBuild_list=mhe_SolverConstructed_List,
-                                         mhe_timeUsedSolve_list=mhe_SolverTimeUsed_List))
+    # io.savemat('Data/x.mat', dict(t=Tplot, dt=DeltaT, xmea=x, xmhe=x_mhe, xol=x_ol, xclean=x_clean))
+    # io.savemat('Data/y.mat', dict(t=Tplot, dt=DeltaT, ymea=y, ymhe=y_mhe, yol=y_ol, yclean=y_clean))
+    # io.savemat('Data/timeUsed.mat', dict(fie_timeUsedBuild_list=fie_SolverConstructed_List,
+    #                                      fie_timeUsedSolve_list=fie_SolverTimeUsed_List,
+    #                                      mhe_timeUsedBuild_list=mhe_SolverConstructed_List,
+    #                                      mhe_timeUsedSolve_list=mhe_SolverTimeUsed_List))
 # ======================================================================================================================
 solvetime += time.time()
 mhe_timeUsed_avg = np.average(mhe_SolverTimeUsed_List)
